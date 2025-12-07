@@ -25,7 +25,7 @@ public class UserController {
 
     @PostMapping
     public User addUser(@RequestBody User user) {
-        log.debug("Получен запрос на добавление нового пользвателя");
+        log.debug("Получен запрос на добавление нового пользователя");
         validateUser(user);
         user.setId(getNextId());
 
@@ -47,7 +47,7 @@ public class UserController {
         }
 
         if (!users.containsKey(newUser.getId())) {
-            log.warn("Попытка обновление информации о несуществующем пользователе с ID {}", newUser.getId());
+            log.warn("Попытка обновления информации о несуществующем пользователе с ID {}", newUser.getId());
             throw new ValidationException("Пользователь с ID " + newUser.getId() + " не найден");
         }
 
@@ -67,7 +67,7 @@ public class UserController {
     }
 
     private void validateUser(User user) {
-        log.debug("Началась валидация пользоватлея {}", user);
+        log.debug("Началась валидация пользователя {}", user);
         if (user.getEmail() == null || user.getEmail().isBlank() || !user.getEmail().contains("@")) {
             log.debug("Валидация не прошла: Email пустой или не содержит @");
             throw new ValidationException("Email не должен быть пустым и содержать @");
@@ -75,6 +75,10 @@ public class UserController {
         if (user.getLogin() == null || user.getLogin().isBlank() || user.getLogin().contains(" ")) {
             log.debug("Валидация не прошла: Логин пустой или содержит пробелы");
             throw new ValidationException("Логин не может быть пустым и содержать пробелы");
+        }
+        if (user.getBirthday() == null) {
+            log.debug("Валидация не прошла: Дата рождения null");
+            throw new ValidationException("Дата рождения не может быть пустой");
         }
         if (user.getBirthday().isAfter(LocalDate.now())) {
             log.debug("Валидация не прошла: Дата рождения указана неверно");

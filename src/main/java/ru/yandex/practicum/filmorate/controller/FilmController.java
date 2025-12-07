@@ -43,7 +43,7 @@ public class FilmController {
             throw new ValidationException("ID не может быть пустым");
         }
         if (!films.containsKey(newFilm.getId())) {
-            log.warn("Попытка обновления несуществующего пользователя с ID: {}", newFilm.getId());
+            log.warn("Попытка обновления несуществующего фильма с ID: {}", newFilm.getId());
             throw new ValidationException("Фильм с ID " + newFilm.getId() + " не найден");
         }
         validateFilm(newFilm);
@@ -63,16 +63,28 @@ public class FilmController {
             log.debug("Валидация не прошла: название фильма пустое");
             throw new ValidationException("Название не может быть пустым");
         }
+        if (film.getDescription() == null) {
+            log.debug("Валидация не прошла: описание фильма null");
+            throw new ValidationException("Описание не может быть пустым");
+        }
         if (film.getDescription().length() > MAX_DESCRIPTION_LENGTH) {
             log.debug("Валидация не прошла: лимит символов превышен");
             throw new ValidationException("Описание не может быть больше " + MAX_DESCRIPTION_LENGTH + " символов");
+        }
+        if (film.getReleaseDate() == null) {
+            log.debug("Валидация не прошла: дата релиза null");
+            throw new ValidationException("Дата релиза не может быть пустой");
         }
         if (film.getReleaseDate().isBefore((MIN_RELEASE_DATE))) {
             log.debug("Валидация не прошла: дата релиза указана неверно");
             throw new ValidationException("Дата релиза не может быть раньше " + MIN_RELEASE_DATE);
         }
+        if (film.getDuration() == null) {
+            log.debug("Валидация не прошла: продолжительность фильма null");
+            throw new ValidationException("Продолжительность фильма не может быть пустой");
+        }
         if (film.getDuration() <= 0) {
-            log.debug("Валидация не прошла: продолжительность фильма отприцательная или равна 0");
+            log.debug("Валидация не прошла: продолжительность фильма отрицательная или равна 0");
             throw new ValidationException("Продолжительность фильма не может быть отрицательным числом или 0");
         }
         log.debug("Валидация фильма прошла успешно");
