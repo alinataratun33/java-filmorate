@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
@@ -28,6 +29,22 @@ public class FilmService {
         this.userStorage = userStorage;
     }
 
+    private Film getFilmByIdOrFail(Long filmId) {
+        if (filmId == null) {
+            throw new ValidationException("ID фильма не может быть null");
+        }
+        return filmStorage.getById(filmId)
+                .orElseThrow(() -> new NotFoundException("Фильм с id " + filmId + " не найден"));
+    }
+
+    private User getUserByIdOrFail(Long userId) {
+        if (userId == null) {
+            throw new ValidationException("ID пользователя не может быть null");
+        }
+        return userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+    }
+
     public Collection<Film> getAllFilms() {
         log.debug("Получение всех фильмов");
         return filmStorage.getAll();
@@ -45,22 +62,15 @@ public class FilmService {
             log.error("Попытка обновления фильма без указания ID");
             throw new ValidationException("ID не может быть пустым");
         }
-        if (filmStorage.getById(newFilm.getId()) == null) {
-            log.warn("Попытка обновления несуществующего фильма с ID: {}", newFilm.getId());
-            throw new NotFoundException("Фильм с ID " + newFilm.getId() + " не найден");
-        }
+        getFilmByIdOrFail(newFilm.getId());
         validateFilm(newFilm);
 
         return filmStorage.update(newFilm);
     }
 
     public void addLike(Long filmId, Long userId) {
-        if (filmStorage.getById(filmId) == null) {
-            throw new NotFoundException("Фильм с id " + filmId + " не найден");
-        }
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
+        getFilmByIdOrFail(filmId);
+        getUserByIdOrFail(userId);
 
         if (!likes.containsKey(filmId)) {
             likes.put(filmId, new HashSet<>());
@@ -72,12 +82,8 @@ public class FilmService {
     }
 
     public void deleteLike(Long filmId, Long userId) {
-        if (filmStorage.getById(filmId) == null) {
-            throw new NotFoundException("Фильм с id " + filmId + " не найден");
-        }
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
+        getFilmByIdOrFail(filmId);
+        getUserByIdOrFail(userId);
 
         if (likes.containsKey(filmId)) {
             likes.get(filmId).remove(userId);

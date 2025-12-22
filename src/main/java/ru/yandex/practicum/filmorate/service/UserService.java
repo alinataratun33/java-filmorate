@@ -22,6 +22,26 @@ public class UserService {
         this.userStorage = userStorage;
     }
 
+    private User getUserByIdOrFail(Long userId) {
+        if (userId == null) {
+            throw new ValidationException("ID пользователя не может быть null");
+        }
+        return userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+    }
+
+    private void createNameUser(User user) {
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
+        }
+    }
+
+    private void checkNotSameUser(Long firstId, Long secondId) {
+        if (firstId.equals(secondId)) {
+            throw new ValidationException("Пользователь не может выполнить действие с самим собой");
+        }
+    }
+
     public Collection<User> getAllUsers() {
         log.debug("Получение всех пользователей");
         return userStorage.getAll();
@@ -31,9 +51,7 @@ public class UserService {
         log.debug("Создание нового пользователя");
         validateUser(user);
 
-        if (user.getName() == null || user.getName().isBlank()) {
-            user.setName(user.getLogin());
-        }
+        createNameUser(user);
         return userStorage.add(user);
     }
 
@@ -45,15 +63,11 @@ public class UserService {
             throw new ValidationException("ID не может быть пустым");
         }
 
-        if (userStorage.getById(user.getId()) == null) {
-            throw new NotFoundException("Пользователь с ID " + user.getId() + " не найден");
-        }
+        getUserByIdOrFail(user.getId());
 
         validateUser(user);
 
-        if (user.getName() == null || user.getName().isBlank()) {
-            user.setName(user.getLogin());
-        }
+        createNameUser(user);
 
         return userStorage.update(user);
     }
@@ -62,16 +76,11 @@ public class UserService {
 
         log.debug("Добавление друга {} пользователю {}", friendId, userId);
 
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с ID " + userId + " не найден");
-        }
-        if (userStorage.getById(friendId) == null) {
-            throw new NotFoundException("Пользователь с ID " + friendId + " не найден");
-        }
+        getUserByIdOrFail(userId);
+        getUserByIdOrFail(friendId);
 
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Пользователь не может добавить себя в друзья");
-        }
+        checkNotSameUser(userId, friendId);
+
         if (!friends.containsKey(userId)) {
             friends.put(userId, new HashSet<>());
         }
@@ -89,15 +98,10 @@ public class UserService {
 
         log.debug("Удаление друга {} у пользователя {}", friendId, userId);
 
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с ID " + userId + " не найден");
-        }
-        if (userStorage.getById(friendId) == null) {
-            throw new NotFoundException("Пользователь с ID " + friendId + " не найден");
-        }
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Пользователь не может удалить себя из друзей");
-        }
+        getUserByIdOrFail(userId);
+        getUserByIdOrFail(friendId);
+
+        checkNotSameUser(userId, friendId);
 
         if (friends.containsKey(userId)) {
             friends.get(userId).remove(friendId);
@@ -114,29 +118,24 @@ public class UserService {
 
         log.debug("Друзья у пользователя с ID {} ", userId);
 
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с ID " + userId + " не найден");
-        }
+        getUserByIdOrFail(userId);
 
         Set<Long> friendIds = friends.getOrDefault(userId, new HashSet<>());
         List<User> friendList = new ArrayList<>();
 
         for (Long friendId : friendIds) {
-            User user = userStorage.getById(friendId);
+            User user = getUserByIdOrFail(friendId);
             friendList.add(user);
         }
+
         return friendList;
     }
 
     public Collection<User> getCommonFriends(Long userId, Long otherUserId) {
         log.debug("Получение общих друзей пользователей {} и {}", userId, otherUserId);
 
-        if (userStorage.getById(userId) == null) {
-            throw new NotFoundException("Пользователь с ID " + userId + " не найден");
-        }
-        if (userStorage.getById(otherUserId) == null) {
-            throw new NotFoundException("Пользователь с ID " + otherUserId + " не найден");
-        }
+        getUserByIdOrFail(userId);
+        getUserByIdOrFail(otherUserId);
 
         Set<Long> userFriends = friends.getOrDefault(userId, new HashSet<>());
         Set<Long> otherUserFriends = friends.getOrDefault(otherUserId, new HashSet<>());
@@ -145,7 +144,7 @@ public class UserService {
         commonFriendIds.retainAll(otherUserFriends);
         List<User> commonFriends = new ArrayList<>();
         for (Long friendId : commonFriendIds) {
-            User user = userStorage.getById(friendId);
+            User user = getUserByIdOrFail(friendId);
             commonFriends.add(user);
         }
         return commonFriends;
