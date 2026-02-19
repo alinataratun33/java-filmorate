@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
+
 import java.util.Collection;
 
 @RestController
@@ -26,6 +27,12 @@ public class FilmController {
     public Film addFilm(@RequestBody Film film) {
         log.debug("Получен запрос на добавление фильма");
         return filmService.addFilm(film);
+    }
+
+    @GetMapping("/{id}")
+    public Film getFilmById(@PathVariable Long id) {
+        log.debug("Получен запрос на получение фильма с ID: {}", id);
+        return filmService.getFilmById(id);
     }
 
     @PutMapping

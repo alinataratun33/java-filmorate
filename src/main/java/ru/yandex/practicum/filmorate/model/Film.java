@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -15,4 +16,6 @@ public class Film {
     String description;
     LocalDate releaseDate;
     Integer duration;
+    List<Genre> genres;
+    Mpa mpa;
 }

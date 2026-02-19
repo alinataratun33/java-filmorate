@@ -15,7 +15,6 @@ import java.util.*;
 @Slf4j
 public class UserService {
     private final UserStorage userStorage;
-    private final Map<Long, Set<Long>> friends = new HashMap<>();
 
     @Autowired
     public UserService(UserStorage userStorage) {
@@ -73,23 +72,17 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-
-        log.debug("Добавление друга {} пользователю {}", friendId, userId);
+        log.debug("Добавление друга: пользователь {} добавляет в друзья пользователя {}", userId, friendId);
 
         getUserByIdOrFail(userId);
         getUserByIdOrFail(friendId);
 
         checkNotSameUser(userId, friendId);
-
-        if (!friends.containsKey(userId)) {
-            friends.put(userId, new HashSet<>());
+        if (userStorage.hasFriendship(friendId, userId)) {
+            userStorage.confirmFriend(userId, friendId);
+        } else {
+            userStorage.addFriend(userId, friendId);
         }
-        if (!friends.containsKey(friendId)) {
-            friends.put(friendId, new HashSet<>());
-        }
-
-        friends.get(userId).add(friendId);
-        friends.get(friendId).add(userId);
 
         log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
     }
@@ -102,14 +95,7 @@ public class UserService {
         getUserByIdOrFail(friendId);
 
         checkNotSameUser(userId, friendId);
-
-        if (friends.containsKey(userId)) {
-            friends.get(userId).remove(friendId);
-        }
-
-        if (friends.containsKey(friendId)) {
-            friends.get(friendId).remove(userId);
-        }
+        userStorage.removeFriend(userId, friendId);
 
         log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
     }
@@ -117,18 +103,16 @@ public class UserService {
     public Collection<User> getFriends(Long userId) {
 
         log.debug("Друзья у пользователя с ID {} ", userId);
-
         getUserByIdOrFail(userId);
+        return userStorage.getFriends(userId);
+    }
 
-        Set<Long> friendIds = friends.getOrDefault(userId, new HashSet<>());
-        List<User> friendList = new ArrayList<>();
-
-        for (Long friendId : friendIds) {
-            User user = getUserByIdOrFail(friendId);
-            friendList.add(user);
-        }
-
-        return friendList;
+    public void confirmFriend(Long userId, Long friendId) {
+        log.debug("Подтверждение заявки: {} подтверждает заявку от {}", userId, friendId);
+        getUserByIdOrFail(userId);
+        getUserByIdOrFail(friendId);
+        checkNotSameUser(userId, friendId);
+        userStorage.confirmFriend(userId, friendId);
     }
 
     public Collection<User> getCommonFriends(Long userId, Long otherUserId) {
@@ -137,17 +121,7 @@ public class UserService {
         getUserByIdOrFail(userId);
         getUserByIdOrFail(otherUserId);
 
-        Set<Long> userFriends = friends.getOrDefault(userId, new HashSet<>());
-        Set<Long> otherUserFriends = friends.getOrDefault(otherUserId, new HashSet<>());
-
-        Set<Long> commonFriendIds = new HashSet<>(userFriends);
-        commonFriendIds.retainAll(otherUserFriends);
-        List<User> commonFriends = new ArrayList<>();
-        for (Long friendId : commonFriendIds) {
-            User user = getUserByIdOrFail(friendId);
-            commonFriends.add(user);
-        }
-        return commonFriends;
+        return userStorage.getCommonFriends(userId, otherUserId);
     }
 
     private void validateUser(User user) {
@@ -170,5 +144,4 @@ public class UserService {
         }
         log.debug("Валидация прошла успешно");
     }
-
 }

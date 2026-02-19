@@ -6,8 +6,11 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.MpaStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
@@ -19,14 +22,18 @@ public class FilmService {
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
+    private final GenreStorage genreStorage;
+    private final MpaStorage mpaStorage;
     private final Map<Long, Set<Long>> likes = new HashMap<>();
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage, GenreStorage genreStorage, MpaStorage mpaStorage) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
+        this.genreStorage = genreStorage;
+        this.mpaStorage = mpaStorage;
     }
 
     private Film getFilmByIdOrFail(Long filmId) {
@@ -50,9 +57,28 @@ public class FilmService {
         return filmStorage.getAll();
     }
 
+    public Film getFilmById(Long id) {
+        log.debug("Получение фильма с ID: {}", id);
+
+        return filmStorage.getById(id)
+                .orElseThrow(() -> new NotFoundException("Фильм с id " + id + " не найден"));
+    }
+
     public Film addFilm(Film film) {
         log.debug("Добавление фильма");
         validateFilm(film);
+
+        mpaStorage.getById(film.getMpa().getId())
+                .orElseThrow(() -> new NotFoundException("MPA рейтинг с id " + film.getMpa().getId() + " не найден"));
+
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            for (Genre genre : film.getGenres()) {
+                if (genre.getId() != null) {
+                    genreStorage.getById(genre.getId())
+                            .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден"));
+                }
+            }
+        }
         return filmStorage.add(film);
     }
 
@@ -72,11 +98,7 @@ public class FilmService {
         getFilmByIdOrFail(filmId);
         getUserByIdOrFail(userId);
 
-        if (!likes.containsKey(filmId)) {
-            likes.put(filmId, new HashSet<>());
-        }
-
-        likes.get(filmId).add(userId);
+        filmStorage.addLike(filmId, userId);
 
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
     }
@@ -85,9 +107,7 @@ public class FilmService {
         getFilmByIdOrFail(filmId);
         getUserByIdOrFail(userId);
 
-        if (likes.containsKey(filmId)) {
-            likes.get(filmId).remove(userId);
-        }
+        filmStorage.removeLike(filmId, userId);
 
         log.info("Пользователь {} удалил лайк фильма {}", userId, filmId);
     }
@@ -98,16 +118,7 @@ public class FilmService {
             count = 10;
         }
 
-        List<Film> allFilms = new ArrayList<>(filmStorage.getAll());
-
-        allFilms.sort((film1, film2) -> {
-            int likes1 = likes.getOrDefault(film1.getId(), new HashSet<>()).size();
-            int likes2 = likes.getOrDefault(film2.getId(), new HashSet<>()).size();
-            return Integer.compare(likes2, likes1);
-        });
-
-        int endIndex = Math.min(count, allFilms.size());
-        return allFilms.subList(0, endIndex);
+        return filmStorage.getPopularFilms(count);
     }
 
     private void validateFilm(Film film) {
@@ -139,6 +150,10 @@ public class FilmService {
         if (film.getDuration() <= 0) {
             log.debug("Валидация не прошла: продолжительность фильма отрицательная или равна 0");
             throw new ValidationException("Продолжительность фильма не может быть отрицательным числом или 0");
+        }
+        if (film.getMpa() == null || film.getMpa().getId() == null) {
+            log.debug("Валидация не прошла: рейтинг MPA должен быть указан");
+            throw new ValidationException("MPA рейтинг должен быть указан");
         }
         log.debug("Валидация фильма прошла успешно");
     }

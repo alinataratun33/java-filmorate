@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
+
 import java.util.Collection;
 
 @RestController
@@ -51,13 +52,20 @@ public class UserController {
 
     @PutMapping("{id}/friends/{friendId}")
     public void addFriend(@PathVariable Long id, @PathVariable Long friendId) {
-        log.debug("Получен запрос на добавление друга {} к пользователю {}", friendId, id);
+        log.debug("Получен запрос на добавление друга: пользователь {} добавляет в друзья пользователя {}",
+                id, friendId);
         userService.addFriend(id, friendId);
+    }
+
+    @PutMapping("/{id}/friends/{friendId}/confirm")
+    public void confirmFriend(@PathVariable Long id, @PathVariable Long friendId) {
+        log.debug("Получен запрос на подтверждение дружбы: {} подтверждает заявку от {}", id, friendId);
+        userService.confirmFriend(id, friendId);
     }
 
     @DeleteMapping("{id}/friends/{friendId}")
     public void deleteFriend(@PathVariable Long id, @PathVariable Long friendId) {
-       log.debug("Получен запрос на удаление друга {} у пользователя {} ", friendId, id);
-       userService.deleteFriend(id, friendId);
+        log.debug("Получен запрос на удаление друга {} у пользователя {} ", friendId, id);
+        userService.deleteFriend(id, friendId);
     }
 }
