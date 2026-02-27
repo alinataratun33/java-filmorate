@@ -7,9 +7,7 @@ import ru.yandex.practicum.filmorate.mapper.GenreRowMapper;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.GenreStorage;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Repository
 public class GenreDbStorage implements GenreStorage {
@@ -22,7 +20,6 @@ public class GenreDbStorage implements GenreStorage {
         this.jdbcTemplate = jdbcTemplate;
         this.genreRowMapper = genreRowMapper;
     }
-
 
     @Override
     public Collection<Genre> getAll() {
@@ -39,5 +36,60 @@ public class GenreDbStorage implements GenreStorage {
             return Optional.empty();
         }
         return Optional.of(genres.getFirst());
+    }
+
+    @Override
+    public Map<Long, List<Genre>> getGenresForAllFilms() {
+        String sql = "SELECT fg.film_id, g.genre_id, g.name " +
+                "FROM film_genre fg JOIN genre g ON fg.genre_id = g.genre_id";
+
+        return jdbcTemplate.query(sql, rs -> {
+            Map<Long, List<Genre>> filmGenresMap = new HashMap<>();
+
+            while (rs.next()) {
+                Long filmId = rs.getLong("film_id");
+
+                Genre genre = new Genre();
+                genre.setId(rs.getLong("genre_id"));
+                genre.setName(rs.getString("name"));
+
+                if (!filmGenresMap.containsKey(filmId)) {
+                    filmGenresMap.put(filmId, new ArrayList<>());
+                }
+                filmGenresMap.get(filmId).add(genre);
+            }
+
+            return filmGenresMap;
+        });
+    }
+
+    @Override
+    public void saveGenresForFilm(Long filmId, List<Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return;
+        }
+
+        String sql = "INSERT INTO film_genre (film_id, genre_id) VALUES (?, ?)";
+
+        Set<Long> uniqueGenreIds = new HashSet<>();
+        for (Genre genre : genres) {
+            if (genre != null && genre.getId() != null) {
+                uniqueGenreIds.add(genre.getId());
+            }
+        }
+
+        for (Long genreId : uniqueGenreIds) {
+            jdbcTemplate.update(sql, filmId, genreId);
+        }
+    }
+
+    @Override
+    public void updateGenresForFilm(Long filmId, List<Genre> genres) {
+        String deleteSql = "DELETE FROM film_genre WHERE film_id = ?";
+        jdbcTemplate.update(deleteSql, filmId);
+
+        if (genres != null && !genres.isEmpty()) {
+            saveGenresForFilm(filmId, genres);
+        }
     }
 }

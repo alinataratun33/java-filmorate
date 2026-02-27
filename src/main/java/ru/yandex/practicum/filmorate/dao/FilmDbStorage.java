@@ -7,7 +7,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.mapper.FilmRowMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
 import java.sql.PreparedStatement;
@@ -32,9 +31,7 @@ public class FilmDbStorage implements FilmStorage {
     public Collection<Film> getAll() {
         String sql = "SELECT f.*, r.name as rating_name FROM films f " +
                 "LEFT JOIN rating r ON f.rating_id = r.rating_id";
-        List<Film> films = jdbcTemplate.query(sql, filmRowMapper);
-        films.forEach(this::loadGenresForFilm);
-        return films;
+        return jdbcTemplate.query(sql, filmRowMapper);
     }
 
     @Override
@@ -49,7 +46,6 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         Film film = films.getFirst();
-        loadGenresForFilm(film);
         return Optional.of(film);
     }
 
@@ -72,9 +68,7 @@ public class FilmDbStorage implements FilmStorage {
 
         Long filmId = keyHolder.getKey().longValue();
         film.setId(filmId);
-
-        saveGenresForFilm(filmId, film.getGenres());
-        return getById(filmId).get();
+        return film;
     }
 
     @Override
@@ -90,7 +84,6 @@ public class FilmDbStorage implements FilmStorage {
                 film.getMpa().getId(),
                 film.getId()
         );
-        updateGenresForFilm(film.getId(), film.getGenres());
         return film;
     }
 
@@ -114,60 +107,6 @@ public class FilmDbStorage implements FilmStorage {
                 "ORDER BY likes_count DESC " +
                 "LIMIT ?";
 
-        List<Film> popularFilms = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Film film = filmRowMapper.mapRow(rs, rowNum);
-            return film;
-        }, count);
-
-        for (Film film : popularFilms) {
-            loadGenresForFilm(film);
-        }
-
-        return popularFilms;
-    }
-
-    private void loadGenresForFilm(Film film) {
-        String sql = "SELECT g.* FROM genre g " +
-                "JOIN film_genre fg ON g.genre_id = fg.genre_id " +
-                "WHERE fg.film_id = ? ORDER BY g.genre_id";
-
-        List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Genre genre = new Genre();
-            genre.setId(rs.getLong("genre_id"));
-            genre.setName(rs.getString("name"));
-            return genre;
-        }, film.getId());
-
-        film.setGenres(genres);
-    }
-
-    private void saveGenresForFilm(Long filmId, List<Genre> genres) {
-        if (genres == null || genres.isEmpty()) {
-            return;
-        }
-
-        String sql = "INSERT INTO film_genre (film_id, genre_id) VALUES (?, ?)";
-
-        Set<Long> uniqueGenreIds = new HashSet<>();
-
-        for (Genre genre : genres) {
-            if (genre != null && genre.getId() != null) {
-                uniqueGenreIds.add(genre.getId());
-            }
-        }
-
-        for (Long genreId : uniqueGenreIds) {
-            jdbcTemplate.update(sql, filmId, genreId);
-        }
-    }
-
-    private void updateGenresForFilm(Long filmId, List<Genre> newGenres) {
-
-        String deleteSql = "DELETE FROM film_genre WHERE film_id = ?";
-        jdbcTemplate.update(deleteSql, filmId);
-
-        if (newGenres != null && !newGenres.isEmpty()) {
-            saveGenresForFilm(filmId, newGenres);
-        }
+        return jdbcTemplate.query(sql, filmRowMapper, count);
     }
 }

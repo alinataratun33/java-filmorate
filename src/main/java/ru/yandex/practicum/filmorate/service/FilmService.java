@@ -24,12 +24,12 @@ public class FilmService {
     private final UserStorage userStorage;
     private final GenreStorage genreStorage;
     private final MpaStorage mpaStorage;
-    private final Map<Long, Set<Long>> likes = new HashMap<>();
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage, GenreStorage genreStorage, MpaStorage mpaStorage) {
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage, GenreStorage genreStorage,
+                       MpaStorage mpaStorage) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
         this.genreStorage = genreStorage;
@@ -54,14 +54,19 @@ public class FilmService {
 
     public Collection<Film> getAllFilms() {
         log.debug("Получение всех фильмов");
-        return filmStorage.getAll();
+        List<Film> films = new ArrayList<>(filmStorage.getAll());
+        loadGenresForFilms(films);
+        return films;
     }
 
     public Film getFilmById(Long id) {
         log.debug("Получение фильма с ID: {}", id);
 
-        return filmStorage.getById(id)
+        Film film = filmStorage.getById(id)
                 .orElseThrow(() -> new NotFoundException("Фильм с id " + id + " не найден"));
+
+        loadGenresForFilms(List.of(film));
+        return film;
     }
 
     public Film addFilm(Film film) {
@@ -79,7 +84,16 @@ public class FilmService {
                 }
             }
         }
-        return filmStorage.add(film);
+
+        Film createdFilm = filmStorage.add(film);
+
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            genreStorage.saveGenresForFilm(createdFilm.getId(), film.getGenres());
+        }
+
+        loadGenresForFilms(List.of(createdFilm));
+
+        return createdFilm;
     }
 
     public Film updateFilm(Film newFilm) {
@@ -91,7 +105,17 @@ public class FilmService {
         getFilmByIdOrFail(newFilm.getId());
         validateFilm(newFilm);
 
-        return filmStorage.update(newFilm);
+        Film updatedFilm = filmStorage.update(newFilm);
+
+        if (newFilm.getGenres() != null && !newFilm.getGenres().isEmpty()) {
+            genreStorage.updateGenresForFilm(updatedFilm.getId(), newFilm.getGenres());
+        } else {
+            genreStorage.updateGenresForFilm(updatedFilm.getId(), Collections.emptyList());
+        }
+
+        loadGenresForFilms(List.of(updatedFilm));
+
+        return updatedFilm;
     }
 
     public void addLike(Long filmId, Long userId) {
@@ -118,7 +142,21 @@ public class FilmService {
             count = 10;
         }
 
-        return filmStorage.getPopularFilms(count);
+        List<Film> popularFilms = filmStorage.getPopularFilms(count);
+        loadGenresForFilms(popularFilms);
+        return popularFilms;
+    }
+
+    private void loadGenresForFilms(List<Film> films) {
+        if (films == null || films.isEmpty()) {
+            return;
+        }
+        Map<Long, List<Genre>> genresMap = genreStorage.getGenresForAllFilms();
+
+        for (Film film : films) {
+            List<Genre> genres = genresMap.getOrDefault(film.getId(), Collections.emptyList());
+            film.setGenres(genres);
+        }
     }
 
     private void validateFilm(Film film) {

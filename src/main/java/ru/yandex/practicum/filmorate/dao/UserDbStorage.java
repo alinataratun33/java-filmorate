@@ -122,16 +122,11 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public List<User> getCommonFriends(Long userId, Long otherId) {
-        List<User> result = new ArrayList<>();
+        String sql = "SELECT u.* FROM users u " +
+                "INNER JOIN friendship f1 ON u.user_id = f1.friend_id AND f1.user_id = ? " +
+                "INNER JOIN friendship f2 ON u.user_id = f2.friend_id AND f2.user_id = ? " +
+                "ORDER BY u.user_id";
 
-        for (User friend : getFriends(userId)) {
-
-            if (getFriends(otherId).contains(friend)) {
-                result.add(friend);
-            }
-        }
-
-        result.sort(Comparator.comparing(User::getId));
-        return result;
+        return jdbcTemplate.query(sql, userRowMapper, userId, otherId);
     }
 }
